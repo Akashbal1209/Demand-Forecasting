@@ -1,0 +1,13 @@
+# Python environment
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Jupyter / pytest / editor
+.ipynb_checkpoints/
+.pytest_cache/
+.vscode/
+
+# Secrets
+.env

@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Planner · Weekly Demand Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+  :root {
+    --bg: #0a0f1c;
+    --card: rgba(17, 26, 46, 0.82);
+    --hero: rgba(20, 32, 58, 0.86);
+    --border: #22304f;
+    --hero-border: #2a3b63;
+    --text: #f4f7fb;
+    --muted: #a9b6cc;
+    --soft: #d3dbe8;
+    --accent: #ffc247;
+    --likely: #4f8cff;
+    --safety: #ffd58a;
+    --track: #22304f;
+    --sel: rgba(24, 36, 63, 0.9);
+    --tile: rgba(24, 35, 60, 0.9);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  #snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1160px; margin: 0 auto; padding: 32px 24px; display: flex; flex-direction: column; gap: 24px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; animation: rise .6s ease both; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 48px; height: 48px; border-radius: 14px; background: var(--accent); color: var(--bg); display: flex; align-items: center; justify-content: center; }
+  h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+  .sub { font-size: 14px; color: var(--muted); }
+  .picker { display: flex; flex-direction: column; gap: 6px; flex: 0 1 400px; min-width: 260px; }
+  .picker label { font-size: 13px; font-weight: 700; color: var(--muted); }
+  select {
+    height: 52px; padding: 0 16px; border: 1px solid var(--border); border-radius: 14px;
+    background: var(--card); color: var(--text); font: inherit; font-size: 15px; font-weight: 600;
+  }
+  select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .grid { display: flex; flex-wrap: wrap; gap: 24px; }
+  .card { background: var(--card); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 28px; }
+
+  .hero {
+    position: relative; overflow: hidden; flex: 1 1 400px; min-width: 0; padding: 32px;
+    background: var(--hero); border-color: var(--hero-border);
+    display: flex; flex-direction: column; gap: 26px; animation: rise .6s ease both;
+  }
+  .chip {
+    align-self: flex-start; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 700; color: var(--bg); background: var(--accent);
+    border-radius: 999px; padding: 6px 14px 6px 12px;
+  }
+  .dot { position: relative; width: 8px; height: 8px; display: block; }
+  .dot::before, .dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--bg); }
+  .dot::before { animation: pulse 1.8s ease-out infinite; }
+  .label { font-size: 16px; font-weight: 600; color: var(--muted); }
+  .big { font-size: clamp(64px, 9vw, 92px); font-weight: 800; line-height: .95; letter-spacing: -0.03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .split { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--track); }
+  .split span { display: block; height: 14px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+  .pair { display: flex; justify-content: space-between; gap: 16px; }
+  .pair > div { display: flex; flex-direction: column; gap: 4px; }
+  .pair > div:last-child { align-items: flex-end; }
+  .key { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .num { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .sentence { margin: 0; font-size: 15px; line-height: 1.6; color: var(--soft); }
+  .note { margin: 0; font-size: 14px; line-height: 1.5; border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px; animation: rise .4s ease both; }
+
+  .weeks { flex: 999 1 560px; min-width: 0; padding: 28px; display: flex; flex-direction: column; gap: 18px; animation: rise .6s ease .12s both; }
+  .weeks-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; }
+  h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 14px; color: var(--soft); }
+  .legend span { display: flex; align-items: center; gap: 8px; }
+  .hint { margin: 0; font-size: 14px; color: var(--muted); }
+  .bars { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; align-items: end; }
+  .bar {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 6px;
+    border-radius: 16px; cursor: pointer; font: inherit; color: inherit;
+    border: 2px solid transparent; background: transparent; transition: background .25s, border-color .25s;
+  }
+  .bar[aria-pressed="true"] { border-color: var(--accent); background: var(--sel); }
+  .bar .top { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .bar .col { height: 280px; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+  .bar .stack { display: flex; flex-direction: column; width: 100%; border-radius: 10px 10px 8px 8px; overflow: hidden; transform-origin: bottom; animation: grow .8s cubic-bezier(.2,.8,.2,1) both; }
+  .bar .s { background: var(--safety); transition: opacity .3s; }
+  .bar .m { background: var(--likely); transition: opacity .3s; }
+  .bar[aria-pressed="false"] .s, .bar[aria-pressed="false"] .m { opacity: .4; }
+  .bar .wk { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .bar[aria-pressed="true"] .wk { color: var(--text); font-weight: 800; }
+
+  .trust { background: var(--card); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 20px; padding: 8px 12px; animation: rise .6s ease .24s both; }
+  .trust > button {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 12px;
+    border: 0; background: transparent; cursor: pointer; font: inherit; font-size: 16px; font-weight: 700; color: var(--text); text-align: left;
+  }
+  .trust svg { transition: transform .25s; flex: none; }
+  .trust[data-open="true"] svg { transform: rotate(180deg); }
+  .tiles { display: none; flex-wrap: wrap; gap: 12px; padding: 8px 12px 16px; }
+  .trust[data-open="true"] .tiles { display: flex; }
+  .tile { flex: 1 1 230px; background: var(--tile); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px; animation: rise .4s ease both; }
+  .tile b { font-size: 15px; }
+  .tile span { font-size: 14px; line-height: 1.5; color: var(--muted); }
+  .foot { margin: 0; font-size: 13px; color: var(--muted); }
+
+  .status { padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--card); color: var(--soft); font-size: 14px; }
+  .status[hidden] { display: none; }
+  .status.error { border-color: #f87171; color: #fecaca; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes pulse { 0% { transform: scale(1); opacity: .8; } 80%, 100% { transform: scale(2.6); opacity: 0; } }
+  @media (max-width: 700px) {
+    .bars { gap: 4px; }
+    .bar { padding: 8px 2px; }
+    .bar .top { font-size: 11px; }
+    .bar .col { height: 200px; }
+    .bar .wk { font-size: 11px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<canvas id="snow" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+      </span>
+      <div>
+        <h1>Stock Planner</h1>
+        <div class="sub">Know how much to keep on the shelf, week by week</div>
+      </div>
+    </div>
+    <div class="picker">
+      <label for="product">Product</label>
+      <select id="product" disabled><option>Loading products…</option></select>
+    </div>
+  </header>
+
+  <p id="status" class="status" role="status" hidden></p>
+
+  <div class="grid">
+    <section class="card hero" aria-live="polite">
+      <span class="chip"><span class="dot" aria-hidden="true"></span><span id="weekLabel">Week of …</span></span>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="label">Stock to keep</span>
+        <span class="big" id="bigNum">–</span>
+        <span class="label" style="font-weight:400">units on the shelf</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="split" aria-hidden="true">
+          <span id="splitLikely" style="width:50%;background:var(--likely)"></span>
+          <span id="splitSafety" style="width:50%;background:var(--safety)"></span>
+        </div>
+        <div class="pair">
+          <div><span class="key"><span class="sw" style="background:var(--likely)"></span>Likely to sell</span><span class="num" id="likelyNum">–</span></div>
+          <div><span class="key"><span class="sw" style="background:var(--safety)"></span>Safety stock</span><span class="num" id="safetyNum">–</span></div>
+        </div>
+      </div>
+      <p class="sentence" id="sentence"></p>
+      <p class="note" id="holidayNote" hidden>Holiday week: the shop is closed or nearly closed between Christmas and New Year, so much less stock is needed.</p>
+    </section>
+
+    <section class="card weeks">
+      <div class="weeks-head">
+        <h2>Next 8 weeks</h2>
+        <div class="legend">
+          <span><span class="sw" style="width:12px;height:12px;background:var(--likely)"></span>Likely to sell</span>
+          <span><span class="sw" style="width:12px;height:12px;background:var(--safety)"></span>Safety stock</span>
+        </div>
+      </div>
+      <p class="hint">Tap a week to see its numbers. The full bar is the stock to keep.</p>
+      <div class="bars" id="bars"></div>
+    </section>
+  </div>
+
+  <section class="trust" id="trust" data-open="false">
+    <button type="button" id="trustBtn" aria-expanded="false" aria-controls="trustTiles">
+      <span>Can I trust these numbers?</span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="tiles" id="trustTiles">
+      <div class="tile"><b>Tested on real sales</b><span>Checked against 8 weeks of real sales the model had never seen.</span></div>
+      <div class="tile" style="animation-delay:.06s"><b>Shelves stayed full</b><span>With the suggested stock, products were available in 9 out of 10 weeks.</span></div>
+      <div class="tile" style="animation-delay:.12s"><b>Better than a simple average</b><span>More accurate than using the average of the last 13 weeks.</span></div>
+      <div class="tile" style="animation-delay:.18s"><b>Not for one-off bulk orders</b><span>A surprise large order can't be predicted. Plan those separately.</span></div>
+    </div>
+  </section>
+
+  <p class="foot" id="foot">UK online gift retailer · 100 products</p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const fmt = (v) => Math.round(v).toLocaleString("en-GB");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const DEFAULT_CODE = "84077";
+
+  let weeks = [];          // [{date, label, likely, target, safety}]
+  let selected = 0;
+  let shown = { target: 0, likely: 0 };
+  let countRaf = null;
+
+  // ------------------------------------------------------------ helpers
+  function showStatus(text, isError) {
+    const el = $("status");
+    el.textContent = text;
+    el.classList.toggle("error", !!isError);
+    el.hidden = !text;
+  }
+
+  function weekLabel(iso, withYear) {
+    const d = new Date(iso + "T00:00:00");
+    const opts = withYear ? { day: "numeric", month: "short", year: "numeric" } : { day: "numeric", month: "short" };
+    return d.toLocaleDateString("en-GB", opts);
+  }
+
+  function isHolidayWeek(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.getMonth() === 11 && d.getDate() >= 25;   // week starting 25–31 Dec
+  }
+
+  async function getJSON(url, options) {
+    const slow = setTimeout(() => showStatus("Waking up the server… the first load can take up to a minute."), 3000);
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || ("Request failed (" + res.status + ")"));
+      }
+      return await res.json();
+    } finally {
+      clearTimeout(slow);
+    }
+  }
+
+  // ------------------------------------------------------------ rendering
+  function countTo(target, likely) {
+    if (countRaf) cancelAnimationFrame(countRaf);
+    const from = { ...shown };
+    if (reduceMotion) { shown = { target, likely }; paintNumbers(); return; }
+    const t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / 700);
+      const e = 1 - Math.pow(1 - p, 3);
+      shown = { target: from.target + (target - from.target) * e, likely: from.likely + (likely - from.likely) * e };
+      paintNumbers();
+      if (p < 1) countRaf = requestAnimationFrame(step);
+    };
+    countRaf = requestAnimationFrame(step);
+  }
+
+  function paintNumbers() {
+    $("bigNum").textContent = fmt(shown.target);
+    $("likelyNum").textContent = fmt(shown.likely);
+    $("safetyNum").textContent = fmt(Math.max(0, shown.target - shown.likely));
+  }
+
+  function selectWeek(i) {
+    selected = i;
+    const w = weeks[i];
+    $("weekLabel").textContent = "Week of " + weekLabel(w.date, true);
+    const pct = w.target > 0 ? Math.round((w.likely / w.target) * 100) : 100;
+    $("splitLikely").style.width = pct + "%";
+    $("splitSafety").style.width = (100 - pct) + "%";
+    $("sentence").textContent =
+      "You will most likely sell about " + fmt(w.likely) + " units. The extra " + fmt(w.safety) +
+      " is a cushion, so the shelf does not run empty in a busy week.";
+    $("holidayNote").hidden = !isHolidayWeek(w.date);
+    document.querySelectorAll(".bar").forEach((b, j) => b.setAttribute("aria-pressed", String(j === i)));
+    countTo(w.target, w.likely);
+  }
+
+  function renderBars() {
+    const box = $("bars");
+    box.innerHTML = "";
+    const colHeight = window.matchMedia("(max-width: 700px)").matches ? 200 : 280;
+    const max = Math.max(1, ...weeks.map((w) => w.target)) * 1.05;
+    weeks.forEach((w, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bar";
+      btn.setAttribute("aria-pressed", "false");
+      btn.setAttribute("aria-label", "Week of " + weekLabel(w.date, true) + ": keep " + fmt(w.target) + " units, likely to sell " + fmt(w.likely));
+      btn.innerHTML =
+        '<span class="top">' + fmt(w.target) + "</span>" +
+        '<span class="col"><span class="stack" style="animation-delay:' + (0.1 + i * 0.07).toFixed(2) + 's">' +
+        '<span class="s" style="height:' + Math.round((w.safety / max) * colHeight) + 'px"></span>' +
+        '<span class="m" style="height:' + Math.max(4, Math.round((w.likely / max) * colHeight)) + 'px"></span>' +
+        "</span></span>" +
+        '<span class="wk">' + weekLabel(w.date, false) + "</span>";
+      btn.addEventListener("click", () => selectWeek(i));
+      box.appendChild(btn);
+    });
+  }
+
+  async function loadForecast(code) {
+    try {
+      $("product").disabled = true;
+      const data = await getJSON("/forecast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock_code: code, weeks: 8 }),
+      });
+      weeks = data.forecast.map((f) => {
+        const likely = Math.round(f.p50), target = Math.round(f.p90);
+        return { date: f.week, likely, target, safety: Math.max(0, target - likely) };
+      });
+      $("foot").textContent = "Forecast made from sales up to " + weekLabel(data.trained_until, true) + " · UK online gift retailer · 100 products";
+      showStatus("");
+      renderBars();
+      selectWeek(0);
+    } catch (err) {
+      showStatus("Could not load the forecast: " + err.message, true);
+    } finally {
+      $("product").disabled = false;
+    }
+  }
+
+  async function init() {
+    try {
+      const products = await getJSON("/products");
+      products.sort((a, b) => a.name.localeCompare(b.name));
+      const sel = $("product");
+      sel.innerHTML = "";
+      for (const p of products) {
+        const opt = document.createElement("option");
+        opt.value = p.stock_code;
+        opt.textContent = p.name.charAt(0) + p.name.slice(1).toLowerCase() + " (" + p.stock_code + ")";
+        sel.appendChild(opt);
+      }
+      sel.value = products.some((p) => p.stock_code === DEFAULT_CODE) ? DEFAULT_CODE : products[0].stock_code;
+      sel.addEventListener("change", () => loadForecast(sel.value));
+      await loadForecast(sel.value);
+    } catch (err) {
+      showStatus("Could not reach the forecast service: " + err.message, true);
+    }
+  }
+
+  $("trustBtn").addEventListener("click", () => {
+    const open = $("trust").dataset.open !== "true";
+    $("trust").dataset.open = String(open);
+    $("trustBtn").setAttribute("aria-expanded", String(open));
+  });
+
+  // ------------------------------------------------------------ snowfall background
+  (function snow() {
+    const cv = $("snow");
+    const ctx = cv.getContext("2d");
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const mouse = { x: -9999, y: -9999, on: false };
+    let W = 0, H = 0, flakes = [];
+    const rnd = (a, b) => a + Math.random() * (b - a);
+
+    function resize() {
+      W = window.innerWidth; H = window.innerHeight;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const n = Math.min(220, Math.round((W * H) / 6500));
+      flakes = Array.from({ length: n }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(0.8, 2.8), vy: rnd(0.25, 0.8), sw: rnd(0, 6.28), dx: 0 }));
+    }
+
+    function draw(t) {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of flakes) {
+        const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+        if (mouse.on && d < 130 && d > 0.5) p.dx += ((p.x - mouse.x) / d) * 0.9 * (1 - d / 130);
+        p.dx *= 0.92;
+        p.y += p.vy;
+        p.x += Math.sin(t / 1600 + p.sw) * 0.35 + p.dx;
+        if (p.y > H + 5) { p.y = -5; p.x = rnd(0, W); }
+        if (p.x < -5) p.x = W + 5;
+        if (p.x > W + 5) p.x = -5;
+        const a = 0.25 + p.r * 0.17;
+        ctx.fillStyle = p.r > 2.2 ? "rgba(255,220,150," + a.toFixed(3) + ")" : "rgba(225,235,255," + a.toFixed(3) + ")";
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    function frame(t) { draw(t); requestAnimationFrame(frame); }
+
+    resize();
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = true; });
+    document.addEventListener("pointerleave", () => { mouse.on = false; });
+    if (reduceMotion) draw(0); else requestAnimationFrame(frame);
+  })();
+
+  init();
+})();
+</script>
+</body>
+</html>

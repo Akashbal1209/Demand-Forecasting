@@ -1,0 +1,9 @@
+step,rows_before,rows_after,rows_removed,pct_of_raw_left
+0. raw data,1067371,1067371,0,100.0
+1. drop exact duplicates,1067371,1033036,34335,96.8
+2. upper-case stock codes,1033036,1033036,0,96.8
+3. drop non-product codes,1033036,1027056,5980,96.2
+4. drop price <= 0,1027056,1021128,5928,95.7
+5. drop cancellations and returns,1021128,1003214,17914,94.0
+6. drop sales cancelled later,1003214,997034,6180,93.4
+7. drop duplicates ignoring description,997034,997033,1,93.4

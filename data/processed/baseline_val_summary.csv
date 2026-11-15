@@ -1,0 +1,7 @@
+method,MAE,WAPE,Bias,MASE,WAPE (no bulk weeks)
+moving avg 13,141.238,0.571,-0.046,0.775,0.552
+moving avg 8,143.124,0.579,-0.023,0.786,0.56
+moving avg 4,154.54,0.623,0.023,0.827,0.609
+naive,198.323,0.802,0.019,1.087,0.797
+seasonal naive (level-adj.),217.353,0.876,0.178,1.135,0.876
+seasonal naive,224.582,0.906,0.244,1.179,0.91
