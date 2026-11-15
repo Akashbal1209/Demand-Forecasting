@@ -1,11 +1,11 @@
-# 📦 Weekly Demand Forecasting — Stock Planner
+﻿# ðŸ“¦ Weekly Demand Forecasting â€” Stock Planner
 
 Forecast how many units of each product a UK online gift retailer will sell in each of the **next 8 weeks**, and turn that forecast into a simple stock decision: **how much stock to keep**.
 
-🔗 **Live app:** https://demand-forecasting-o8yb.onrender.com
-📄 **API docs:** https://demand-forecasting-o8yb.onrender.com/docs
+ðŸ”— **Live app:** https://demand-forecasting-o8yb.onrender.com
+ðŸ“„ **API docs:** https://demand-forecasting-o8yb.onrender.com/docs
 
-> The app runs on Render's free plan. If nobody has used it for a while, the first load can take 30–60 seconds while the server wakes up.
+> The app runs on Render's free plan. If nobody has used it for a while, the first load can take 30â€“60 seconds while the server wakes up.
 
 ![Stock Planner UI](assets/screenshot.png)
 
@@ -24,7 +24,7 @@ A single "best guess" number is not enough for this decision. The planner also n
 |---|---|---|
 | **Likely to sell** | The middle forecast | p50 (median) |
 | **Stock to keep** | Enough for a busy week; demand should go above this only about 1 week in 10 | p90 |
-| **Safety stock** | The extra on top of "likely" | p90 − p50 |
+| **Safety stock** | The extra on top of "likely" | p90 âˆ’ p50 |
 
 ---
 
@@ -50,29 +50,29 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 
 - Removed exact duplicate rows.
 - Removed codes that are not products (postage, fees, adjustments). A real product code starts with 5 digits.
-- Removed rows with price ≤ 0.
+- Removed rows with price â‰¤ 0.
 - Removed cancellation invoices (invoice numbers that start with "C").
 - Removed **sales that were cancelled later**. Each cancellation is matched to the original sale by the same customer, product and quantity, where the sale is on or before the cancellation date. Matching is one-to-one, in time order. Without this step, sales that never really happened would count as demand.
 - Ran a second duplicate check that ignores the product description, because descriptions sometimes differ for the same row.
 
 ### 2. Weekly demand and product selection (`02_eda_weekly_demand.ipynb`)
 - Summed units into **weeks starting on Monday**. Partial weeks at the start and end of the data were dropped.
-- Filled weeks with no sales with **0**, including the Christmas weeks when the shop was closed. Result: a full grid of **104 weeks × 100 products**.
+- Filled weeks with no sales with **0**, including the Christmas weeks when the shop was closed. Result: a full grid of **104 weeks Ã— 100 products**.
 - Chose the **top 100 products** that were sold across the whole history. They were ranked on totals with bulk orders capped, so that one huge wholesale order cannot push a product into the top 100.
-- Labelled each product's demand pattern (smooth, erratic, intermittent, lumpy) using ADI / CV².
+- Labelled each product's demand pattern (smooth, erratic, intermittent, lumpy) using ADI / CVÂ².
 - Looked at weekly autocorrelation (ACF) to see which lags matter.
 
 ### 3. Honest evaluation setup (`03_baselines.ipynb`)
 - **Rolling-origin backtest.** Each fold trains only on the past and forecasts the next 8 weeks.
 - **3 validation folds** were used for every design and tuning decision.
-- **1 test fold** (10 Oct – 28 Nov 2011, the peak gift season) was used **once**, at the very end.
+- **1 test fold** (10 Oct â€“ 28 Nov 2011, the peak gift season) was used **once**, at the very end.
 - Main metric: **WAPE**, the total absolute error divided by total units. Also reported: MAE, Bias, MASE, and WAPE with bulk-order weeks removed.
 - Baselines: naive, moving averages over 4, 8 and 13 weeks, seasonal naive, and a level-adjusted seasonal naive.
 
 ### 4. Model (`04_model.ipynb`)
-- **One global LightGBM model** trained on all 100 products together, with **direct multi-horizon** forecasting: the forecast horizon `h = 1…8` is a feature.
+- **One global LightGBM model** trained on all 100 products together, with **direct multi-horizon** forecasting: the forecast horizon `h = 1â€¦8` is a feature.
 - **Features** (`src/features.py`):
-  - recent lags 1–4
+  - recent lags 1â€“4
   - rolling mean and standard deviation
   - the same week last year, and a smoothed version of it
   - year-over-year level ratio and seasonal ratio
@@ -86,22 +86,22 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 ### 5. Explainability and business value (`05_explain_and_business.ipynb`)
 - **SHAP** values show which features drive the forecasts.
 - An error analysis shows where the model is weak.
-- A **stock simulation** compares "keep p90" against a classic safety-stock rule: 13-week moving average + z·σ.
+- A **stock simulation** compares "keep p90" against a classic safety-stock rule: 13-week moving average + zÂ·Ïƒ.
 
 ---
 
-## Results (held-out test, 10 Oct – 28 Nov 2011)
+## Results (held-out test, 10 Oct â€“ 28 Nov 2011)
 
 | Metric | Moving average (13 wk) | **LightGBM** |
 |---|---|---|
 | WAPE (lower is better) | 57.9% | **53.4%** |
-| p10–p90 coverage (target 80%) | — | **81.8%** |
-| Bias | — | −18.3% |
+| p10â€“p90 coverage (target 80%) | â€” | **81.8%** |
+| Bias | â€” | âˆ’18.3% |
 
 **Business result:** to reach a **90% service level**, keeping p90 as stock needed **~11% less stock** and caused **~35% fewer lost sales** than the classic safety-stock rule.
 
 ### Limitations (being honest)
-- **Peak weeks are under-forecast.** Bias is −18% on the test period. The test period is the run-up to Christmas, and the model only has one previous Christmas to learn from. This is why the app recommends stocking to **p90**, not to the median.
+- **Peak weeks are under-forecast.** Bias is âˆ’18% on the test period. The test period is the run-up to Christmas, and the model only has one previous Christmas to learn from. This is why the app recommends stocking to **p90**, not to the median.
 - **Only 2 years of history.** That means just one "same week last year" for each week.
 - **The simulation is simplified.** It has no supplier lead times, and unsold stock does not carry over to the next week.
 - **No cold start.** The model only covers the 100 products it was trained on.
@@ -124,7 +124,7 @@ python -m pytest -v      # 12 passed
 
 - **No leakage:** changing future weeks does not change any feature.
 - **Train/serve consistency:** the API builds exactly the same features as training did.
-- **Model bundle and output checks:** all forecasts are ≥ 0 and p10 ≤ p50 ≤ p90.
+- **Model bundle and output checks:** all forecasts are â‰¥ 0 and p10 â‰¤ p50 â‰¤ p90.
 - **API checks:** `/`, `/health`, `/products` and `/forecast` work, an unknown product returns 404, and an invalid number of weeks returns 422.
 
 ---
@@ -151,25 +151,25 @@ curl -X POST https://demand-forecasting-o8yb.onrender.com/forecast \
 
 ```
 Demand_Forecasting/
-├── 01_Demand_Forecasting.ipynb     # load, audit, clean
-├── 02_eda_weekly_demand.ipynb      # weekly demand, product selection, EDA
-├── 03_baselines.ipynb              # backtest folds, metrics, baselines
-├── 04_model.ipynb                  # LightGBM, Optuna, quantiles, test, bundle
-├── 05_explain_and_business.ipynb   # SHAP, error analysis, stock simulation
-├── src/
-│   ├── features.py                 # feature engineering (shared by training and API)
-│   ├── evaluation.py               # metrics and baseline helpers
-│   └── forecast.py                 # makes forecasts from the saved bundle
-├── app/
-│   ├── main.py                     # FastAPI app
-│   ├── schemas.py                  # request / response models
-│   └── static/index.html           # Stock Planner UI
-├── models/forecast_bundle.pkl      # trained models + everything the API needs
-├── data/raw/                       # original Excel file
-├── data/processed/                 # cleaned and weekly data
-├── tests/                          # pytest tests
-├── requirements.txt
-└── .python-version                 # 3.13.9
+â”œâ”€â”€ 01_Demand_Forecasting.ipynb     # load, audit, clean
+â”œâ”€â”€ 02_eda_weekly_demand.ipynb      # weekly demand, product selection, EDA
+â”œâ”€â”€ 03_baselines.ipynb              # backtest folds, metrics, baselines
+â”œâ”€â”€ 04_model.ipynb                  # LightGBM, Optuna, quantiles, test, bundle
+â”œâ”€â”€ 05_explain_and_business.ipynb   # SHAP, error analysis, stock simulation
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ features.py                 # feature engineering (shared by training and API)
+â”‚   â”œâ”€â”€ evaluation.py               # metrics and baseline helpers
+â”‚   â””â”€â”€ forecast.py                 # makes forecasts from the saved bundle
+â”œâ”€â”€ app/
+â”‚   â”œâ”€â”€ main.py                     # FastAPI app
+â”‚   â”œâ”€â”€ schemas.py                  # request / response models
+â”‚   â””â”€â”€ static/index.html           # Stock Planner UI
+â”œâ”€â”€ models/forecast_bundle.pkl      # trained models + everything the API needs
+â”œâ”€â”€ data/raw/                       # original Excel file
+â”œâ”€â”€ data/processed/                 # cleaned and weekly data
+â”œâ”€â”€ tests/                          # pytest tests
+â”œâ”€â”€ requirements.txt
+â””â”€â”€ .python-version                 # 3.13.9
 ```
 
 ---
@@ -187,12 +187,10 @@ uvicorn app.main:app --reload
 
 Then open http://127.0.0.1:8000.
 
-To re-run the notebooks, also install the notebook-only packages (jupyter, matplotlib, optuna, shap, openpyxl, plus anything else imported at the top of each notebook) and run them in order, 01 → 05.
+To re-run the notebooks, also install the notebook-only packages (jupyter, matplotlib, optuna, shap, openpyxl, plus anything else imported at the top of each notebook) and run them in order, 01 â†’ 05.
 
 ---
 
 ## Tech stack
-Python 3.13 · pandas · LightGBM · Optuna · SHAP · FastAPI · Pydantic · pytest · Render
+Python 3.13 Â· pandas Â· LightGBM Â· Optuna Â· SHAP Â· FastAPI Â· Pydantic Â· pytest Â· Render
 
-## Author
-**Aman Raj**: [GitHub](https://github.com/Akashbal1209)
