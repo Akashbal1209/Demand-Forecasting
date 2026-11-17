@@ -92,7 +92,7 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 
 ### 6. SQL analysis (`06_sql_analysis.ipynb`)
 - The clean data is loaded into a **SQLite** database (`data/retail.db`) with 5 tables, primary keys, foreign keys, `CHECK` rules and indexes (`sql/schema.sql`).
-- 7 reusable queries in `sql/queries/` answer business questions: best sellers by units vs revenue, monthly sales with year-over-year change, revenue by country, biggest customers, and the seasonal profile of the 100 forecast products.
+- 6 reusable queries in `sql/queries/` answer business questions: best sellers by units vs revenue, monthly sales with year-over-year change, revenue by country, biggest customers, and the demand patterns and seasonal profile of the 100 forecast products. Two more build model data: weekly demand (below) and weekly orders (Part 7).
 - They use joins, `GROUP BY` / `HAVING`, CTEs, a recursive CTE, window functions (`RANK`, `LAG`, `SUM OVER`), `CASE WHEN` pivots and date functions.
 - **Weekly demand is rebuilt with one SQL query** and matches the pandas result from Part 2 for all 10,400 product-weeks.
 - The API reads its products, weekly history and weekly order counts from a small second database (`data/app.db`) with SQL.
