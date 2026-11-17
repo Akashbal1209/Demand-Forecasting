@@ -67,7 +67,7 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 ### 3. Honest evaluation setup (`03_baselines.ipynb`)
 - **Rolling-origin backtest.** Each fold trains only on the past and forecasts the next 8 weeks.
 - **3 validation folds** were used for every design and tuning decision.
-- **1 test fold** (10 Oct – 28 Nov 2011, the peak gift season) was used **once**, at the very end.
+- **1 test fold** (10 Oct – 28 Nov 2011, the peak gift season) was **never used for any decision**. It only reports the final result: once for the Part 4 model and once for the Part 7 model, after its features had been chosen on validation.
 - Main metric: **WAPE**, the total absolute error divided by total units. Also reported: MAE, Bias, MASE, and WAPE with bulk-order weeks removed.
 - Baselines: naive, moving averages over 4, 8 and 13 weeks, seasonal naive, and a level-adjusted seasonal naive.
 
@@ -141,7 +141,7 @@ A single test score depends on which products and which weeks happened to be in 
 - **Bootstrap confidence intervals:** the 100 test products are resampled with replacement 10,000 times (each product keeps its 8 weeks). A **paired** version compares two models on the same resampled products.
 - **Diebold-Mariano test:** compares the weekly errors of two models over the 32 forecast weeks of all four folds, allowing for errors up to 7 weeks apart to be correlated, with the Harvey–Leybourne–Newbold small-sample correction.
 
-| Comparison (test fold) | WAPE difference | Paired bootstrap 95% CI | Diebold-Mariano p-value |
+| Comparison | WAPE difference (test fold) | Paired bootstrap 95% CI (test fold) | Diebold-Mariano p-value (32 weeks) |
 |---|---|---|---|
 | LightGBM (Part 7) vs moving average | −5.1 pp | −7.7 to −3.0 pp | **0.002** |
 | LightGBM (Part 4) vs moving average | −4.5 pp | −7.1 to −2.4 pp | **0.013** |
@@ -149,7 +149,7 @@ A single test score depends on which products and which weeks happened to be in 
 
 - **LightGBM beats the moving average in both tests.** This is the main claim of the project, and it holds.
 - **The order-feature gain is small:** it is consistent across products (better in 99% of bootstrap samples) but **not significant over time** (p ≈ 0.07), so it is described as a small improvement, not a big one.
-- **The gain is not in bulk-order weeks:** about 1,200 of the 1,300 units of lower test error come from normal weeks. The 31 bulk-order product-weeks still cause about 28% of the error and are about 77% under-forecast by every model.
+- **The gain is not in bulk-order weeks:** about 1,200 of the 1,300 units of lower test error come from normal weeks. The 31 bulk-order product-weeks still cause about 28% of the error, and every model forecasts them 77–80% too low.
 - The deployed model's test WAPE of 52.9% has a 95% CI of **48.0%–57.7%**, and its p10–p90 coverage interval (77.6%–85.1%) contains the 80% target.
 
 ---
