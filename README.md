@@ -36,7 +36,7 @@ A single "best guess" number is not enough for this decision. The planner also n
 https://archive.ics.uci.edu/dataset/502/online+retail+ii
 
 - Every transaction of a UK-based online gift-ware retailer from **01 Dec 2009 to 09 Dec 2011**. Many of the customers are wholesalers.
-- About 1.07 million rows in one Excel file (`online_retail_II.xlsx`, 43.5 MB) with two sheets, one per year.
+- About 1.07 million rows in one Excel file (`online_retail_II.xlsx`, 45.6 MB) with two sheets, one per year.
 - Licence: **CC BY 4.0**.
 
 > Chen, D. (2012). *Online Retail II* [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5CG6D

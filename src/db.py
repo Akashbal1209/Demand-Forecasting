@@ -3,7 +3,8 @@ SQLite helpers.
 
 The project keeps two SQLite databases, both built by scripts/build_db.py:
     data/retail.db : all clean sales lines, used by the SQL analysis notebook (06)
-    data/app.db    : the 100 forecast products and their weekly history, read by the FastAPI app
+    data/app.db    : the 100 forecast products, their weekly units and orders, and the
+                     model's test metrics, read by the FastAPI app
 
 sqlite3 is part of Python's standard library, so no database server is needed:
 each database is a single file.

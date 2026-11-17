@@ -1,7 +1,7 @@
 """
 Make forecasts from a saved model bundle.
 
-Used by the notebook (to check the saved bundle) and by the FastAPI app,
+Used by the notebooks (to check the saved bundles) and by the FastAPI app,
 so both produce forecasts in exactly the same way.
 """
 

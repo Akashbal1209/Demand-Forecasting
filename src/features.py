@@ -1,7 +1,7 @@
 """
 Feature engineering for weekly demand forecasting.
 
-This file is shared by the training notebook and the FastAPI app, so the
+This file is shared by the notebooks and the FastAPI app, so the
 model always sees features built in exactly the same way.
 
 Setup ("direct" forecasting):
