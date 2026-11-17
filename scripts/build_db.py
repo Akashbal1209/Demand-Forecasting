@@ -6,7 +6,8 @@ Run from the project root:
 
     data/retail.db : full analysis database (about 1 million clean sales lines).
                      Too big for GitHub, so it is not in git; this script rebuilds it.
-    data/app.db    : small database read by the FastAPI app (100 products x 104 weeks).
+    data/app.db    : small database read by the FastAPI app (100 products x 104 weeks,
+                     weekly units and weekly orders).
                      It is kept in git so the deployed app has its data.
 """
 
@@ -113,12 +114,17 @@ def build_app_db():
         "name": list(bundle["product_names"].values()),
     }))
 
-    long = history.rename_axis(index="week", columns="stock_code").stack().rename("units").reset_index()
-    insert(conn, "weekly_demand", pd.DataFrame({
-        "stock_code": long["stock_code"].astype(str),
-        "week": long["week"].dt.strftime("%Y-%m-%d"),
-        "units": long["units"].astype(int),
-    }))
+    def to_long(wide, value):
+        long = wide.rename_axis(index="week", columns="stock_code").stack().rename(value).reset_index()
+        return pd.DataFrame({
+            "stock_code": long["stock_code"].astype(str),
+            "week": long["week"].dt.strftime("%Y-%m-%d"),
+            value: long[value].astype(int),
+        })
+
+    insert(conn, "weekly_demand", to_long(history, "units"))
+    if "orders" in bundle:                       # models with order features (Part 7)
+        insert(conn, "weekly_orders", to_long(bundle["orders"], "orders"))
 
     insert(conn, "model_info", pd.DataFrame({
         "key": ["trained_until", "test_metrics"],

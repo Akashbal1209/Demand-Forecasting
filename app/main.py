@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 from app.schemas import ForecastRequest, ForecastResponse, Health, Product
-from src.db import APP_DB, connect, load_history, load_model_info, load_product_names
+from src.db import APP_DB, connect, load_history, load_model_info, load_orders, load_product_names
 from src.forecast import forecast
 
 BASE_DIR = Path(__file__).resolve().parent.parent          # project root
@@ -29,11 +29,12 @@ bundle = joblib.load(BUNDLE_PATH)                          # trained models
 
 with closing(connect(APP_DB)) as conn:                     # read-only SQLite connection
     history = load_history(conn)                           # week x product units
+    orders = load_orders(conn)                             # week x product orders
     names = load_product_names(conn)                       # {stock_code: name}
     model_info = load_model_info(conn)                     # trained_until, test_metrics
 
 # the stored history is fixed, so all forecasts can be computed once
-all_forecasts = forecast(bundle, history=history)
+all_forecasts = forecast(bundle, history=history, orders=orders)
 all_forecasts["safety_stock"] = (all_forecasts["p90"] - all_forecasts["p50"]).round(1)
 all_forecasts["stock_target"] = all_forecasts["p90"]
 
@@ -41,7 +42,7 @@ app = FastAPI(
     title="Weekly Demand Forecast API",
     description="8-week demand forecasts (p10 / p50 / p90) and stock targets "
                 "for 100 products of a UK online gift retailer.",
-    version="1.0.0",
+    version="1.1.0",                                       # 1.1: model with order features (Part 7)
 )
 
 

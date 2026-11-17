@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from src.db import (APP_DB, SQL_DIR, connect, load_history, load_model_info,
-                    load_product_names, run_query)
+                    load_orders, load_product_names, run_query)
 from src.forecast import forecast
 
 BUNDLE_PATH = Path(__file__).resolve().parent.parent / "models" / "forecast_bundle.pkl"
@@ -38,8 +38,14 @@ def test_history_matches_bundle(app_conn, bundle):
     pd.testing.assert_frame_equal(history, bundle["history"], check_column_type=False)
 
 
+def test_orders_match_bundle(app_conn, bundle):
+    orders = load_orders(app_conn)
+    pd.testing.assert_frame_equal(orders, bundle["orders"], check_column_type=False,
+                                  check_dtype=False)
+
+
 def test_forecasts_match_bundle(app_conn, bundle):
-    from_db = forecast(bundle, history=load_history(app_conn))
+    from_db = forecast(bundle, history=load_history(app_conn), orders=load_orders(app_conn))
     pd.testing.assert_frame_equal(from_db, forecast(bundle))
 
 

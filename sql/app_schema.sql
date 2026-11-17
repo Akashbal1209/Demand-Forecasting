@@ -4,6 +4,7 @@
 
 PRAGMA foreign_keys = ON;
 
+DROP TABLE IF EXISTS weekly_orders;
 DROP TABLE IF EXISTS weekly_demand;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS model_info;
@@ -19,6 +20,14 @@ CREATE TABLE weekly_demand (
     stock_code  TEXT    NOT NULL REFERENCES products (stock_code),
     week        TEXT    NOT NULL,
     units       INTEGER NOT NULL,
+    PRIMARY KEY (stock_code, week)
+);
+
+-- orders (distinct invoices) per product per week, for the model's order features
+CREATE TABLE weekly_orders (
+    stock_code  TEXT    NOT NULL REFERENCES products (stock_code),
+    week        TEXT    NOT NULL,
+    orders      INTEGER NOT NULL,
     PRIMARY KEY (stock_code, week)
 );
 

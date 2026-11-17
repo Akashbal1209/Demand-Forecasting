@@ -95,7 +95,7 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 - 7 reusable queries in `sql/queries/` answer business questions: best sellers by units vs revenue, monthly sales with year-over-year change, revenue by country, biggest customers, and the seasonal profile of the 100 forecast products.
 - They use joins, `GROUP BY` / `HAVING`, CTEs, a recursive CTE, window functions (`RANK`, `LAG`, `SUM OVER`), `CASE WHEN` pivots and date functions.
 - **Weekly demand is rebuilt with one SQL query** and matches the pandas result from Part 2 for all 10,400 product-weeks.
-- The API reads its products and weekly history from a small second database (`data/app.db`) with SQL.
+- The API reads its products, weekly history and weekly order counts from a small second database (`data/app.db`) with SQL.
 
 Example (`sql/queries/top_products.sql`):
 ```sql
@@ -116,15 +116,37 @@ LIMIT :top_n;
 ```
 The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units and money tell different stories.
 
+### 7. Model improvement with tracked experiments (`07_experiments_mlflow.ipynb`)
+- New features aimed at the two weaknesses found in Part 5:
+  - **Order features**, built with SQL (`sql/queries/weekly_orders.sql`): orders per week (last 4 vs last 13 weeks), order size (last 4 vs last 13 weeks) and typical order size. Target: bulk orders and changes in how many customers buy a product.
+  - **Peak index**: how strong a product's September–November season was over the last 52 weeks. Target: the under-forecast gift-season peak.
+- Every experiment is tracked with **MLflow** (parameters, feature list, metrics per fold). The final models are saved in the **MLflow Model Registry** (`weekly-demand-p50`).
+- Same rules as before: model settings fixed from Part 4, decisions on the 3 validation folds only, test fold used once.
+
+| Experiment | Validation WAPE |
+|---|---|
+| Part 4 features (baseline) | 53.88% |
+| + peak index | 54.11% |
+| **+ order features** | **53.54%** |
+| + peak index + order features | 53.65% |
+
+- The gain from order features held in **13 of 15** checks with different random seeds, so it is small but not luck.
+- **Test fold (used once): WAPE 53.4% → 52.9%**, MAE 160.2 → 158.5, p10–p90 coverage 81.5%.
+- **What did not work:** the peak index could not help on validation, because no validation fold contains a gift season. The Christmas under-forecast is **not** fixed (bias about −18.6%). With only one earlier gift season in the data, the model cannot learn how big a peak can get.
+- All runs are also saved to `data/processed/feature_experiments.csv`.
+- **Deployed:** the model with order features is now the one the live app uses (`models/forecast_bundle.pkl`). Its weekly order counts are stored in the `weekly_orders` table of `data/app.db`, so the chain **SQL → features → model → API** runs end to end. The Part 4 model is kept as `models/forecast_bundle_v1.pkl`, and notebooks 04–05 still analyse that model.
+
 ---
 
 ## Results (held-out test, 10 Oct – 28 Nov 2011)
 
-| Metric | Moving average (13 wk) | **LightGBM** |
-|---|---|---|
-| WAPE (lower is better) | 57.9% | **53.4%** |
-| p10–p90 coverage (target 80%) | — | **81.8%** |
-| Bias | — | −18.3% |
+| Metric | Moving average (13 wk) | LightGBM (Part 4) | **LightGBM + order features (Part 7, deployed)** |
+|---|---|---|---|
+| WAPE (lower is better) | 57.9% | 53.4% | **52.9%** |
+| p10–p90 coverage (target 80%) | — | 81.8% | 81.5% |
+| Bias | — | −18.3% | −18.6% |
+
+The live app uses the Part 7 model. The business result below comes from the Part 5 stock simulation, which uses the Part 4 model.
 
 **Business result:** to reach a **90% service level**, keeping p90 as stock needed **~11% less stock** and caused **~35% fewer lost sales** than the classic safety-stock rule.
 
@@ -136,8 +158,8 @@ The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units a
 - WAPE is still high in absolute terms, because weekly demand for single gift products is very noisy.
 
 ### Future work
-- A "Christmas item" feature for seasonal products
-- More years of data
+- More years of data, so a validation fold can sit inside a gift season and peak features (like the Part 7 peak index) can be tested properly
+- A seasonal multiplier for gift-season weeks, since tree models cannot forecast above what they have seen
 - Croston / TSB models for intermittent products
 - A stock simulation with lead times and stock carried over between weeks
 - Forecasts for new products
@@ -148,18 +170,18 @@ The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units a
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -v      # 18 passed
+python -m pytest -v      # 23 passed
 ```
 
 **Continuous integration** (`.github/workflows/ci.yml`): GitHub Actions runs on every push and pull request to `main`:
 1. **tests**: installs the pinned packages and runs the full pytest suite on Linux.
 2. **docker**: builds the Docker image, starts the container, and calls `/health`, `/products` and `/forecast` (including the 404 case). It only runs if the tests pass.
 
-- **No leakage:** changing future weeks does not change any feature.
-- **Train/serve consistency:** the API builds exactly the same features as training did.
-- **Model bundle and output checks:** all forecasts are ≥ 0 and p10 ≤ p50 ≤ p90.
+- **No leakage:** changing future weeks (units or orders) does not change any feature.
+- **Train/serve consistency:** the API builds exactly the same features as training did, including the order features.
+- **Model bundle and output checks:** the app's bundle has the order features and order counts it needs, all forecasts are ≥ 0 and p10 ≤ p50 ≤ p90, and the Part 4 bundle still works for notebooks 04–05.
 - **API checks:** `/`, `/health`, `/products` and `/forecast` work, an unknown product returns 404, and an invalid number of weeks returns 422.
-- **Database checks:** the history in `data/app.db` is identical to the training data and gives identical forecasts, the database is opened read-only, the weekly demand SQL query follows the Part 2 rules on a small hand-made example, and the schema rejects bad rows.
+- **Database checks:** the history and order counts in `data/app.db` are identical to the training data and give identical forecasts, the database is opened read-only, the weekly demand SQL query follows the Part 2 rules on a small hand-made example, and the schema rejects bad rows.
 
 ---
 
@@ -191,6 +213,7 @@ Demand_Forecasting/
 ├── 04_model.ipynb                  # LightGBM, Optuna, quantiles, test, bundle
 ├── 05_explain_and_business.ipynb   # SHAP, error analysis, stock simulation
 ├── 06_sql_analysis.ipynb           # SQL database, business queries, weekly demand in SQL
+├── 07_experiments_mlflow.ipynb     # new features, experiments tracked with MLflow
 ├── src/
 │   ├── features.py                 # feature engineering (shared by training and API)
 │   ├── evaluation.py               # metrics and baseline helpers
@@ -205,7 +228,8 @@ Demand_Forecasting/
 │   ├── main.py                     # FastAPI app
 │   ├── schemas.py                  # request / response models
 │   └── static/index.html           # Stock Planner UI
-├── models/forecast_bundle.pkl      # trained models + everything the API needs
+├── models/forecast_bundle.pkl      # Part 7 model + everything the API needs (used by the app)
+├── models/forecast_bundle_v1.pkl   # Part 4 model (used by notebooks 04–05)
 ├── data/raw/                       # original Excel file
 ├── data/processed/                 # cleaned and weekly data
 ├── data/app.db                     # small SQLite database read by the API
@@ -245,13 +269,19 @@ Then open http://localhost:8000. The image contains only what the API needs (`ap
 
 To re-run the notebooks, also install the notebook-only packages (jupyter, matplotlib, optuna, shap, openpyxl, plus anything else imported at the top of each notebook) and run them in order, 01 → 05.
 
-Notebook 06 needs the full SQL database, which is too big for GitHub. Build it first (takes about 10 seconds):
+Notebooks 06 and 07 need the full SQL database, which is too big for GitHub. Build it first (takes about 10 seconds):
 
 ```powershell
 python scripts/build_db.py
 ```
 
+Notebook 07 also needs `mlflow`. It saves the app's model to `models/forecast_bundle.pkl`; after re-running it, run `python scripts/build_db.py` again so `data/app.db` matches the new model. Its runs are stored in a local `mlflow.db` file; to browse them:
+
+```powershell
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
 ---
 
 ## Tech stack
-Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · FastAPI · Pydantic · pytest · Docker · GitHub Actions (CI) · Render
+Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · MLflow · FastAPI · Pydantic · pytest · Docker · GitHub Actions (CI) · Render

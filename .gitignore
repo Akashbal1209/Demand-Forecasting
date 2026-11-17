@@ -14,3 +14,7 @@ __pycache__/
 
 # SQLite analysis database (large, rebuilt by scripts/build_db.py)
 data/retail.db
+
+# MLflow experiment tracking (local runs; results are saved to data/processed/feature_experiments.csv)
+mlflow.db
+mlruns/

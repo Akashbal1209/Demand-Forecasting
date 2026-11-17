@@ -59,23 +59,33 @@ def load_product_names(conn):
     return dict(rows)
 
 
-def load_history(conn):
-    """
-    Weekly units as a week x product table (rows = weeks, columns = stock codes),
-    the same shape as bundle["history"] and what src/forecast.py expects.
-    """
+def _load_weekly(conn, table, value):
+    """A weekly table as a week x product DataFrame (rows = weeks, columns = stock codes)."""
     df = pd.read_sql(
-        """
-        SELECT week, stock_code, units
-        FROM weekly_demand
+        f"""
+        SELECT week, stock_code, {value}
+        FROM {table}
         ORDER BY stock_code, week
         """,
         conn,
         parse_dates=["week"],
     )
-    history = df.pivot(index="week", columns="stock_code", values="units")
-    history.columns.name = "StockCode"
-    return history
+    wide = df.pivot(index="week", columns="stock_code", values=value)
+    wide.columns.name = "StockCode"
+    return wide
+
+
+def load_history(conn):
+    """
+    Weekly units as a week x product table, the same shape as bundle["history"]
+    and what src/forecast.py expects.
+    """
+    return _load_weekly(conn, "weekly_demand", "units")
+
+
+def load_orders(conn):
+    """Orders (distinct invoices) per week, same shape as load_history()."""
+    return _load_weekly(conn, "weekly_orders", "orders")
 
 
 def load_model_info(conn):

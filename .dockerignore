@@ -18,3 +18,6 @@ assets/
 data/raw/
 data/processed/
 data/retail.db
+
+# only the app model is needed at runtime (v1 is for notebooks 04-05)
+models/forecast_bundle_v1.pkl

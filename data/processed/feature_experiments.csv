@@ -1,0 +1,18 @@
+run,stage,new features,WAPE,Bias,MAE,coverage,final: test WAPE
+baseline,validation,none,0.5387884673325967,-0.17191966405346978,133.28843177798387,0.7920833333333334,
++ peak index,validation,ly_peak_index,0.5410872544750145,-0.1728948112601081,133.85805019611632,0.7870833333333334,
++ order features,validation,"orders_ratio, order_size_ratio, log_units_per_order",0.5354283583499257,-0.17704234674526664,132.48031878657733,0.7875,
++ peak + orders,validation,"ly_peak_index, orders_ratio, order_size_ratio, log_units_per_order",0.536545389825684,-0.17722151239770847,132.77388375110766,0.78625,
+baseline (seed 42),seed check,none,0.5387884673325967,-0.17191966405346978,133.28843177798387,,
++ order features (seed 42),seed check,"orders_ratio, order_size_ratio, log_units_per_order",0.5354283583499257,-0.17704234674526664,132.48031878657733,,
+baseline (seed 1),seed check,none,0.5382096939370927,-0.17246095129431308,133.1445093282783,,
++ order features (seed 1),seed check,"orders_ratio, order_size_ratio, log_units_per_order",0.5355746615643144,-0.17721424500682836,132.51342005966856,,
+baseline (seed 2),seed check,none,0.5374356897337861,-0.16769520922788464,132.96056717371053,,
++ order features (seed 2),seed check,"orders_ratio, order_size_ratio, log_units_per_order",0.5350469567202051,-0.17654884128564974,132.38831207190336,,
+baseline (seed 3),seed check,none,0.5388400043188663,-0.17370708651578007,133.29428313056835,,
++ order features (seed 3),seed check,"orders_ratio, order_size_ratio, log_units_per_order",0.5366048688810169,-0.18124135727552215,132.75575808216772,,
+baseline (seed 4),seed check,none,0.5391377618728654,-0.17402908359685376,133.37065834320262,,
++ order features (seed 4),seed check,"orders_ratio, order_size_ratio, log_units_per_order",0.5353370925212011,-0.18153058016910348,132.4593705128399,,
+baseline (test),test,none,0.5342051423822065,-0.18265017134653252,160.1787409175927,0.8175,
++ order features (test),test,"orders_ratio, order_size_ratio, log_units_per_order",0.5287529301776012,-0.18614835326453064,158.54392234910281,0.815,
+"+ order features (final, all weeks)",final,"orders_ratio, order_size_ratio, log_units_per_order",,,,,0.5287529301776012

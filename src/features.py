@@ -33,6 +33,11 @@ FEATURES = [
 ]
 CATEGORICAL = ["product"]
 
+# extra features tested in notebook 07 (not used by the model unless listed in its features)
+PEAK_MONTHS = (9, 10, 11)                       # September-November: the gift season
+PEAK_FEATURES = ["ly_peak_index"]
+ORDER_FEATURES = ["orders_ratio", "order_size_ratio", "log_units_per_order"]
+
 
 # calendar
 def week_calendar(week_starts):
@@ -84,13 +89,53 @@ def _window_mean(hist, start, end):
     return hist[start : end + 1].mean(axis=0)
 
 
-def make_features(Y, origin, horizons=range(1, HORIZON + 1)):
+def _peak_index(hist, weeks, T):
+    """
+    How strong each product's gift season was over the last 52 weeks:
+    average week in September-November divided by the average week.
+    NaN until a full year of history is available.
+    """
+    if T < SEASON - 1:
+        return np.full(hist.shape[1], np.nan)
+    window = hist[T - SEASON + 1 : T + 1]
+    window_weeks = pd.DatetimeIndex(weeks[T - SEASON + 1 : T + 1])
+    in_peak = np.isin((window_weeks + pd.Timedelta(days=3)).month, PEAK_MONTHS)
+    year_mean = window.mean(axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        index = np.where(year_mean > 0, window[in_peak].mean(axis=0) / year_mean, np.nan)
+    return np.clip(index, 0, 5)
+
+
+def _order_features(orders, hist, T):
+    """
+    Features from the number of orders (invoices) per week:
+    - orders_ratio        : orders per week, last 4 weeks vs last 13 weeks (more or fewer buyers lately?)
+    - order_size_ratio    : units per order, last 4 weeks vs last 13 weeks (bigger orders lately?)
+    - log_units_per_order : typical order size over 13 weeks (wholesale-type product or not)
+    """
+    o4, o13 = orders[T - 3 : T + 1].sum(axis=0), orders[T - 12 : T + 1].sum(axis=0)
+    u4, u13 = hist[T - 3 : T + 1].sum(axis=0), hist[T - 12 : T + 1].sum(axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        orders_ratio = np.where(o13 > 0, (o4 / 4) / (o13 / 13), np.nan)
+        size_4 = np.where(o4 > 0, u4 / o4, np.nan)
+        size_13 = np.where(o13 > 0, u13 / o13, np.nan)
+        order_size_ratio = np.where(size_13 > 0, size_4 / size_13, np.nan)
+    return {
+        "orders_ratio": np.clip(orders_ratio, 0, 5),
+        "order_size_ratio": np.clip(order_size_ratio, 0, 5),
+        "log_units_per_order": np.log1p(size_13),
+    }
+
+
+def make_features(Y, origin, horizons=range(1, HORIZON + 1), orders=None):
     """
     Feature rows for forecasting weeks origin+1 ... origin+H.
 
     Y      : DataFrame, week x product (weekly DatetimeIndex, columns = StockCode).
     origin : integer position of the last known week.
-    Only rows 0 ... origin of Y are read, so future values can't leak in.
+    orders : optional DataFrame like Y with the number of orders per week;
+             when given, the ORDER_FEATURES are added.
+    Only rows 0 ... origin of Y (and orders) are read, so future values can't leak in.
     """
     if origin < MIN_HISTORY - 1:
         raise ValueError(f"origin must be >= {MIN_HISTORY - 1}")
@@ -121,7 +166,12 @@ def make_features(Y, origin, horizons=range(1, HORIZON + 1)):
         "rstd_8": rstd_8 / scale,
         "yoy_ratio": yoy_ratio,
         "log_scale": np.log1p(scale),
+        "ly_peak_index": _peak_index(hist, Y.index, T),
     }
+    if orders is not None:
+        if not (orders.columns.equals(Y.columns) and orders.index[: len(Y)].equals(Y.index)):
+            raise ValueError("orders must have the same products as Y and start at the same week")
+        base.update(_order_features(orders.iloc[: origin + 1].to_numpy(dtype=float), hist, T))
 
     origin_week = Y.index[T]
     target_weeks = pd.DatetimeIndex([origin_week + pd.Timedelta(weeks=h) for h in horizons])
@@ -153,7 +203,7 @@ def make_features(Y, origin, horizons=range(1, HORIZON + 1)):
     return out
 
 
-def build_training_set(Y, last_train, first_origin=MIN_HISTORY - 1):
+def build_training_set(Y, last_train, first_origin=MIN_HISTORY - 1, orders=None):
     """
     Training rows for a model that may only use weeks 0 ... last_train.
 
@@ -169,7 +219,7 @@ def build_training_set(Y, last_train, first_origin=MIN_HISTORY - 1):
     frames = []
     for T in range(first_origin, last_train):
         hs = [h for h in range(1, HORIZON + 1) if T + h <= last_train]
-        f = make_features(Y_cap, T, hs)
+        f = make_features(Y_cap, T, hs, orders=orders)
         actual = Y_cap.iloc[[T + h for h in hs]].to_numpy()          # (len(hs), products)
         f["y"] = actual.reshape(-1) / f["scale"].to_numpy()
         frames.append(f)
