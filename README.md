@@ -88,6 +88,32 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 - An error analysis shows where the model is weak.
 - A **stock simulation** compares "keep p90" against a classic safety-stock rule: 13-week moving average + z·σ.
 
+### 6. SQL analysis (`06_sql_analysis.ipynb`)
+- The clean data is loaded into a **SQLite** database (`data/retail.db`) with 5 tables, primary keys, foreign keys, `CHECK` rules and indexes (`sql/schema.sql`).
+- 7 reusable queries in `sql/queries/` answer business questions: best sellers by units vs revenue, monthly sales with year-over-year change, revenue by country, biggest customers, and the seasonal profile of the 100 forecast products.
+- They use joins, `GROUP BY` / `HAVING`, CTEs, a recursive CTE, window functions (`RANK`, `LAG`, `SUM OVER`), `CASE WHEN` pivots and date functions.
+- **Weekly demand is rebuilt with one SQL query** and matches the pandas result from Part 2 for all 10,400 product-weeks.
+- The API reads its products and weekly history from a small second database (`data/app.db`) with SQL.
+
+Example (`sql/queries/top_products.sql`):
+```sql
+WITH product_totals AS (
+    SELECT s.stock_code, p.name,
+           SUM(s.quantity)          AS units,
+           ROUND(SUM(s.revenue), 2) AS revenue
+    FROM sales AS s
+    JOIN products AS p ON p.stock_code = s.stock_code
+    GROUP BY s.stock_code, p.name
+)
+SELECT RANK() OVER (ORDER BY units DESC)   AS units_rank,
+       RANK() OVER (ORDER BY revenue DESC) AS revenue_rank,
+       stock_code, name, units, revenue
+FROM product_totals
+ORDER BY units_rank
+LIMIT :top_n;
+```
+The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units and money tell different stories.
+
 ---
 
 ## Results (held-out test, 10 Oct – 28 Nov 2011)
@@ -119,13 +145,14 @@ Every removal is counted in `data/processed/cleaning_log.csv`.
 ## Tests
 
 ```bash
-python -m pytest -v      # 12 passed
+python -m pytest -v      # 18 passed
 ```
 
 - **No leakage:** changing future weeks does not change any feature.
 - **Train/serve consistency:** the API builds exactly the same features as training did.
 - **Model bundle and output checks:** all forecasts are ≥ 0 and p10 ≤ p50 ≤ p90.
 - **API checks:** `/`, `/health`, `/products` and `/forecast` work, an unknown product returns 404, and an invalid number of weeks returns 422.
+- **Database checks:** the history in `data/app.db` is identical to the training data and gives identical forecasts, the database is opened read-only, the weekly demand SQL query follows the Part 2 rules on a small hand-made example, and the schema rejects bad rows.
 
 ---
 
@@ -156,10 +183,17 @@ Demand_Forecasting/
 ├── 03_baselines.ipynb              # backtest folds, metrics, baselines
 ├── 04_model.ipynb                  # LightGBM, Optuna, quantiles, test, bundle
 ├── 05_explain_and_business.ipynb   # SHAP, error analysis, stock simulation
+├── 06_sql_analysis.ipynb           # SQL database, business queries, weekly demand in SQL
 ├── src/
 │   ├── features.py                 # feature engineering (shared by training and API)
 │   ├── evaluation.py               # metrics and baseline helpers
-│   └── forecast.py                 # makes forecasts from the saved bundle
+│   ├── forecast.py                 # makes forecasts from the saved bundle
+│   └── db.py                       # SQLite helpers (connect, run saved queries, load app data)
+├── sql/
+│   ├── schema.sql                  # tables of data/retail.db
+│   ├── app_schema.sql              # tables of data/app.db
+│   └── queries/                    # one .sql file per business question
+├── scripts/build_db.py             # builds both SQLite databases
 ├── app/
 │   ├── main.py                     # FastAPI app
 │   ├── schemas.py                  # request / response models
@@ -167,6 +201,8 @@ Demand_Forecasting/
 ├── models/forecast_bundle.pkl      # trained models + everything the API needs
 ├── data/raw/                       # original Excel file
 ├── data/processed/                 # cleaned and weekly data
+├── data/app.db                     # small SQLite database read by the API
+├── data/retail.db                  # full SQLite database (not in git, built by scripts/build_db.py)
 ├── tests/                          # pytest tests
 ├── requirements.txt
 └── .python-version                 # 3.13.9
@@ -189,7 +225,13 @@ Then open http://127.0.0.1:8000.
 
 To re-run the notebooks, also install the notebook-only packages (jupyter, matplotlib, optuna, shap, openpyxl, plus anything else imported at the top of each notebook) and run them in order, 01 → 05.
 
+Notebook 06 needs the full SQL database, which is too big for GitHub. Build it first (takes about 10 seconds):
+
+```powershell
+python scripts/build_db.py
+```
+
 ---
 
 ## Tech stack
-Python 3.13 · pandas · LightGBM · Optuna · SHAP · FastAPI · Pydantic · pytest · Render
+Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · FastAPI · Pydantic · pytest · Render

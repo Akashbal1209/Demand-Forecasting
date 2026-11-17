@@ -11,3 +11,6 @@ __pycache__/
 
 # Secrets
 .env
+
+# SQLite analysis database (large, rebuilt by scripts/build_db.py)
+data/retail.db

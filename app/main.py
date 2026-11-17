@@ -3,8 +3,12 @@ FastAPI app: weekly demand forecasts (p10 / p50 / p90) for 100 products.
 
 Run locally from the project root:
     uvicorn app.main:app --reload
+
+Data comes from data/app.db (SQLite) through SQL queries in src/db.py;
+the trained models come from models/forecast_bundle.pkl.
 """
 
+from contextlib import closing
 from pathlib import Path
 
 import joblib
@@ -12,6 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 from app.schemas import ForecastRequest, ForecastResponse, Health, Product
+from src.db import APP_DB, connect, load_history, load_model_info, load_product_names
 from src.forecast import forecast
 
 BASE_DIR = Path(__file__).resolve().parent.parent          # project root
@@ -20,12 +25,15 @@ INDEX_HTML = BASE_DIR / "app" / "static" / "index.html"
 HISTORY_WEEKS = 26                                         # weeks of history sent for the chart
 
 # ---------------------------------------------------------------- load once at startup
-bundle = joblib.load(BUNDLE_PATH)
-history = bundle["history"]
-names = {str(code): name for code, name in bundle["product_names"].items()}
+bundle = joblib.load(BUNDLE_PATH)                          # trained models
 
-# the saved history is fixed, so all forecasts can be computed once
-all_forecasts = forecast(bundle)
+with closing(connect(APP_DB)) as conn:                     # read-only SQLite connection
+    history = load_history(conn)                           # week x product units
+    names = load_product_names(conn)                       # {stock_code: name}
+    model_info = load_model_info(conn)                     # trained_until, test_metrics
+
+# the stored history is fixed, so all forecasts can be computed once
+all_forecasts = forecast(bundle, history=history)
 all_forecasts["safety_stock"] = (all_forecasts["p90"] - all_forecasts["p50"]).round(1)
 all_forecasts["stock_target"] = all_forecasts["p90"]
 
@@ -48,9 +56,9 @@ def home():
 def health():
     return Health(
         status="ok",
-        trained_until=bundle["trained_until"],
+        trained_until=model_info["trained_until"],
         n_products=len(names),
-        test_metrics=bundle["test_metrics"],
+        test_metrics=model_info["test_metrics"],
     )
 
 
@@ -72,7 +80,7 @@ def make_forecast(req: ForecastRequest):
     return ForecastResponse(
         stock_code=code,
         name=names[code],
-        trained_until=bundle["trained_until"],
+        trained_until=model_info["trained_until"],
         forecast=fc[["week", "h", "p10", "p50", "p90", "safety_stock", "stock_target"]]
                  .to_dict(orient="records"),
         history=[{"week": w, "units": int(u)} for w, u in past.items()],
