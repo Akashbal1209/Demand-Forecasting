@@ -1,0 +1,63 @@
+# Runs on every push and pull request to main:
+#   1. tests  - the full pytest suite
+#   2. docker - builds the Docker image, starts it, and calls the API
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install packages
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python -m pytest -v
+
+  docker:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t demand-forecast .
+
+      - name: Start container
+        run: docker run -d --name api -p 8000:8000 demand-forecast
+
+      - name: Wait until the API is up
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && exit 0
+            sleep 2
+          done
+          echo "API did not start"; exit 1
+
+      - name: Smoke test the API
+        run: |
+          curl -sf http://localhost:8000/health | grep '"status":"ok"'
+          curl -sf http://localhost:8000/products | grep '"stock_code":"84077"'
+          curl -sf -X POST http://localhost:8000/forecast \
+            -H "Content-Type: application/json" \
+            -d '{"stock_code": "84077", "weeks": 3}' | grep '"stock_code":"84077"'
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/forecast \
+            -H "Content-Type: application/json" -d '{"stock_code": "99999"}')
+          test "$code" = "404"
+
+      - name: Show container logs
+        if: always()
+        run: docker logs api

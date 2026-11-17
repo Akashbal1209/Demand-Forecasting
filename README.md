@@ -1,5 +1,7 @@
 ﻿# 📦 Weekly Demand Forecasting — Stock Planner
 
+[![CI](https://github.com/Akashbal1209/Demand-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/Akashbal1209/Demand-Forecasting/actions/workflows/ci.yml)
+
 Forecast how many units of each product a UK online gift retailer will sell in each of the **next 8 weeks**, and turn that forecast into a simple stock decision: **how much stock to keep**.
 
 🔗 **Live app:** https://demand-forecasting-o8yb.onrender.com
@@ -145,8 +147,13 @@ The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units a
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 python -m pytest -v      # 18 passed
 ```
+
+**Continuous integration** (`.github/workflows/ci.yml`): GitHub Actions runs on every push and pull request to `main`:
+1. **tests**: installs the pinned packages and runs the full pytest suite on Linux.
+2. **docker**: builds the Docker image, starts the container, and calls `/health`, `/products` and `/forecast` (including the 404 case). It only runs if the tests pass.
 
 - **No leakage:** changing future weeks does not change any feature.
 - **Train/serve consistency:** the API builds exactly the same features as training did.
@@ -204,7 +211,11 @@ Demand_Forecasting/
 ├── data/app.db                     # small SQLite database read by the API
 ├── data/retail.db                  # full SQLite database (not in git, built by scripts/build_db.py)
 ├── tests/                          # pytest tests
+├── .github/workflows/ci.yml        # CI: tests + Docker build and API smoke test
+├── Dockerfile                      # container image for the API
+├── .dockerignore
 ├── requirements.txt
+├── requirements-dev.txt            # requirements.txt + test packages
 └── .python-version                 # 3.13.9
 ```
 
@@ -223,6 +234,15 @@ uvicorn app.main:app --reload
 
 Then open http://127.0.0.1:8000.
 
+### With Docker
+
+```powershell
+docker build -t demand-forecast .
+docker run -p 8000:8000 demand-forecast
+```
+
+Then open http://localhost:8000. The image contains only what the API needs (`app/`, `src/`, `models/`, `data/app.db`), runs as a non-root user, and has a health check on `/health`.
+
 To re-run the notebooks, also install the notebook-only packages (jupyter, matplotlib, optuna, shap, openpyxl, plus anything else imported at the top of each notebook) and run them in order, 01 → 05.
 
 Notebook 06 needs the full SQL database, which is too big for GitHub. Build it first (takes about 10 seconds):
@@ -234,4 +254,4 @@ python scripts/build_db.py
 ---
 
 ## Tech stack
-Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · FastAPI · Pydantic · pytest · Render
+Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · FastAPI · Pydantic · pytest · Docker · GitHub Actions (CI) · Render
