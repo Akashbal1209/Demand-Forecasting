@@ -136,6 +136,21 @@ The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units a
 - All runs are also saved to `data/processed/feature_experiments.csv`.
 - **Deployed:** the model with order features is now the one the live app uses (`models/forecast_bundle.pkl`). Its weekly order counts are stored in the `weekly_orders` table of `data/app.db`, so the chain **SQL → features → model → API** runs end to end. The Part 4 model is kept as `models/forecast_bundle_v1.pkl`, and notebooks 04–05 still analyse that model.
 
+### 8. Statistical tests (`08_statistical_tests.ipynb`)
+A single test score depends on which products and which weeks happened to be in the test. Two checks show how much the results can be trusted (functions in `src/stats.py`):
+- **Bootstrap confidence intervals:** the 100 test products are resampled with replacement 10,000 times (each product keeps its 8 weeks). A **paired** version compares two models on the same resampled products.
+- **Diebold-Mariano test:** compares the weekly errors of two models over the 32 forecast weeks of all four folds, allowing for errors up to 7 weeks apart to be correlated, with the Harvey–Leybourne–Newbold small-sample correction.
+
+| Comparison (test fold) | WAPE difference | Paired bootstrap 95% CI | Diebold-Mariano p-value |
+|---|---|---|---|
+| LightGBM (Part 7) vs moving average | −5.1 pp | −7.7 to −3.0 pp | **0.002** |
+| LightGBM (Part 4) vs moving average | −4.5 pp | −7.1 to −2.4 pp | **0.013** |
+| Part 7 vs Part 4 (order features) | −0.5 pp | −1.0 to −0.1 pp | 0.07 |
+
+- **LightGBM beats the moving average in both tests.** This is the main claim of the project, and it holds.
+- **The order-feature gain is small:** it is consistent across products (better in 99% of bootstrap samples) but **not significant over time** (p ≈ 0.07), so it is described as a small improvement, not a big one.
+- The deployed model's test WAPE of 52.9% has a 95% CI of **48.0%–57.7%**, and its p10–p90 coverage interval (77.6%–85.1%) contains the 80% target.
+
 ---
 
 ## Results (held-out test, 10 Oct – 28 Nov 2011)
@@ -143,6 +158,7 @@ The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units a
 | Metric | Moving average (13 wk) | LightGBM (Part 4) | **LightGBM + order features (Part 7, deployed)** |
 |---|---|---|---|
 | WAPE (lower is better) | 57.9% | 53.4% | **52.9%** |
+| WAPE 95% CI (bootstrap, Part 8) | 52.2–64.0% | 48.6–58.3% | 48.0–57.7% |
 | p10–p90 coverage (target 80%) | — | 81.8% | 81.5% |
 | Bias | — | −18.3% | −18.6% |
 
@@ -170,7 +186,7 @@ The live app uses the Part 7 model. The business result below comes from the Par
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -v      # 23 passed
+python -m pytest -v      # 30 passed
 ```
 
 **Continuous integration** (`.github/workflows/ci.yml`): GitHub Actions runs on every push and pull request to `main`:
@@ -182,6 +198,7 @@ python -m pytest -v      # 23 passed
 - **Model bundle and output checks:** the app's bundle has the order features and order counts it needs, all forecasts are ≥ 0 and p10 ≤ p50 ≤ p90, and the Part 4 bundle still works for notebooks 04–05.
 - **API checks:** `/`, `/health`, `/products` and `/forecast` work, an unknown product returns 404, and an invalid number of weeks returns 422.
 - **Database checks:** the history and order counts in `data/app.db` are identical to the training data and give identical forecasts, the database is opened read-only, the weekly demand SQL query follows the Part 2 rules on a small hand-made example, and the schema rejects bad rows.
+- **Statistics checks:** with no lags the Diebold-Mariano test equals a paired t-test, it detects a clearly better forecast, and the bootstrap is reproducible, centred on the test score and uses the same products for every model.
 
 ---
 
@@ -214,9 +231,11 @@ Demand_Forecasting/
 ├── 05_explain_and_business.ipynb   # SHAP, error analysis, stock simulation
 ├── 06_sql_analysis.ipynb           # SQL database, business queries, weekly demand in SQL
 ├── 07_experiments_mlflow.ipynb     # new features, experiments tracked with MLflow
+├── 08_statistical_tests.ipynb      # bootstrap confidence intervals, Diebold-Mariano test
 ├── src/
 │   ├── features.py                 # feature engineering (shared by training and API)
 │   ├── evaluation.py               # metrics and baseline helpers
+│   ├── stats.py                    # Diebold-Mariano test and bootstrap helpers
 │   ├── forecast.py                 # makes forecasts from the saved bundle
 │   └── db.py                       # SQLite helpers (connect, run saved queries, load app data)
 ├── sql/
@@ -281,7 +300,9 @@ Notebook 07 also needs `mlflow`. It saves the app's model to `models/forecast_bu
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
+Notebook 08 only needs the two saved models in `models/`, not the SQL database.
+
 ---
 
 ## Tech stack
-Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · MLflow · FastAPI · Pydantic · pytest · Docker · GitHub Actions (CI) · Render
+Python 3.13 · pandas · SQL (SQLite) · LightGBM · Optuna · SHAP · MLflow · SciPy (statistical tests) · FastAPI · Pydantic · pytest · Docker · GitHub Actions (CI) · Render
