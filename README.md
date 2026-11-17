@@ -132,7 +132,7 @@ The #1 product by units (*World War 2 Gliders*) is only #152 by revenue: units a
 
 - The gain from order features held in **13 of 15** checks with different random seeds, so it is small but not luck.
 - **Test fold (used once): WAPE 53.4% → 52.9%**, MAE 160.2 → 158.5, p10–p90 coverage 81.5%.
-- **What did not work:** the peak index could not help on validation, because no validation fold contains a gift season. The Christmas under-forecast is **not** fixed (bias about −18.6%). With only one earlier gift season in the data, the model cannot learn how big a peak can get.
+- **What did not work:** the peak index could not help on validation, because no validation fold contains a gift season. The Christmas under-forecast is **not** fixed (bias about −18.6%). With only one earlier gift season in the data, the model cannot learn how big a peak can get. Bulk orders are not fixed either: Part 8 shows the gain comes from normal weeks.
 - All runs are also saved to `data/processed/feature_experiments.csv`.
 - **Deployed:** the model with order features is now the one the live app uses (`models/forecast_bundle.pkl`). Its weekly order counts are stored in the `weekly_orders` table of `data/app.db`, so the chain **SQL → features → model → API** runs end to end. The Part 4 model is kept as `models/forecast_bundle_v1.pkl`, and notebooks 04–05 still analyse that model.
 
@@ -149,6 +149,7 @@ A single test score depends on which products and which weeks happened to be in 
 
 - **LightGBM beats the moving average in both tests.** This is the main claim of the project, and it holds.
 - **The order-feature gain is small:** it is consistent across products (better in 99% of bootstrap samples) but **not significant over time** (p ≈ 0.07), so it is described as a small improvement, not a big one.
+- **The gain is not in bulk-order weeks:** about 1,200 of the 1,300 units of lower test error come from normal weeks. The 31 bulk-order product-weeks still cause about 28% of the error and are about 77% under-forecast by every model.
 - The deployed model's test WAPE of 52.9% has a 95% CI of **48.0%–57.7%**, and its p10–p90 coverage interval (77.6%–85.1%) contains the 80% target.
 
 ---
@@ -168,6 +169,7 @@ The live app uses the Part 7 model. The business result below comes from the Par
 
 ### Limitations (being honest)
 - **Peak weeks are under-forecast.** Bias is −18% on the test period. The test period is the run-up to Christmas, and the model only has one previous Christmas to learn from. This is why the app recommends stocking to **p90**, not to the median.
+- **Bulk orders are under-forecast.** One-off wholesale orders are about 4% of product-weeks but about 28% of the error. They are capped in training, and the Part 7 order features did not fix them (Part 8). Sales history cannot show such an order before it happens; advance orders from wholesale customers would be needed.
 - **Only 2 years of history.** That means just one "same week last year" for each week.
 - **The simulation is simplified.** It has no supplier lead times, and unsold stock does not carry over to the next week.
 - **No cold start.** The model only covers the 100 products it was trained on.
