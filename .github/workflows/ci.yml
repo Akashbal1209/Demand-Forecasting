@@ -11,13 +11,13 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version-file: .python-version
+          python-version: "3.13"            # same minor version as .python-version and the Docker image
           cache: pip
           cache-dependency-path: requirements*.txt
 
@@ -29,9 +29,9 @@ jobs:
 
   docker:
     needs: tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build image
         run: docker build -t demand-forecast .
